@@ -1,0 +1,174 @@
+---
+# tasks file for roles/Placement
+# this roles only runs in controller node , u need to check if the vars/main.yml contains var target_hostname
+- name: check the hostname before start tasks
+  block:
+    - name: check if hostname is {{ target_hostname }}
+      ansible.builtin.debug:
+        msg: "the target host {{ inventory_hostname }}'s hostname 是 {{ ansible_hostname }}，not controller host，please check the hostname and rerun the role"
+      when: ansible_hostname != target_hostname
+
+    - name: stop running in wrong host
+      meta: end_host
+      when: ansible_hostname != target_hostname
+
+- name: ensure mark directory exists
+  ansible.builtin.file:
+    path: "{{ mark_dir_path }}"
+    state: directory
+    mode: '0755'
+
+- name: create placemnet db and db_user
+  block:
+    - name: create placement_db
+      community.mysql.mysql_db:
+        login_user: root
+        login_unix_socket: "{{ mariadb_unix_socket_path }}"
+        name: "{{ placement_db_conf.db_name }}"
+        state: present
+
+    - name: create placement db_user
+      community.mysql.mysql_user:
+        login_user: root
+        login_unix_socket: "{{ mariadb_unix_socket_path }}"
+        name: "{{ placement_db_conf.db_user_name }}"
+        password: "{{ placement_db_conf.db_user_password }}"
+        priv: "{{ placement_db_conf.db_name }}.*:ALL"
+        state: present
+        host: "{{ item }}"
+      loop:
+        - "localhost"
+        - "%"
+
+- name: Create Placement service user, role, service, and endpoints
+  block:
+    # 创建 Placement 用户
+    - name: Create placement user in default domain
+      openstack.cloud.identity_user:
+        name: placement
+        domain: default
+        password: "{{ openstack_placement_user_password }}"
+        state: present
+
+    # 将管理员角色添加到 placement 用户
+    - name: Assign admin role to placement user in service project
+      openstack.cloud.role_assignment:
+        user: placement
+        project: service
+        role: admin
+        state: present
+
+    # 创建 Placement 服务实体
+    - name: Create placement service entity
+      openstack.cloud.catalog_service:
+        name: placement
+        service_type: placement
+        description: "Placement API"
+        state: present
+
+    # 创建 Placement 的 public endpoint
+    - name: Create placement public endpoint
+      openstack.cloud.endpoint:
+        service: placement
+        endpoint_interface: public
+        url: "http://controller:8778"
+        region: RegionOne
+        state: present
+
+    # 创建 Placement 的 internal endpoint
+    - name: Create placement internal endpoint
+      openstack.cloud.endpoint:
+        service: placement
+        endpoint_interface: internal
+        url: "http://controller:8778"
+        region: RegionOne
+        state: present
+
+    # 创建 Placement 的 admin endpoint
+    - name: Create placement admin endpoint
+      openstack.cloud.endpoint:
+        service: placement
+        endpoint_interface: admin
+        url: "http://controller:8778"
+        region: RegionOne
+        state: present
+
+
+- name: install and configure placement
+  block:
+    - name: install placement packages
+      ansible.builtin.dnf:
+        name: "{{ placement_packages }}"
+        state: latest
+
+    - name: configrue placemnet,deploy placemnet configure file
+      ansible.builtin.template:
+        src: "{{ placement_conf_template_path }}"
+        dest: "{{ placement_conf_path }}"
+
+
+- name: synce the placement_db
+  block:
+    - name: ensure placement database is synced
+      ansible.builtin.command: placement-manage db sync
+      become: yes
+      become_user: placement
+      #here i use .db_synced empty file to mark that this placement db has been synced,if the mark file exists,this task won't run
+      args:
+        creates: "{{ placement_mark_path.db_synced_mark_path }}"
+      register: placement_db_sync
+      ignore_errors: false
+
+    - name: Mark Placement database as synced
+      ansible.builtin.file:
+        path: "{{ placement_mark_path.db_synced_mark_path }}"
+        state: touch
+      when: placement_db_sync.changed
+
+
+    - name: Show db_sync output
+      ansible.builtin.debug:
+        msg: "{{ placement_db_sync.stdout_lines }}"
+
+    - name: restart httpd 
+      ansible.builtin.service:
+        name: httpd
+        state: restarted
+
+- name: transform policy.json to YAML
+  block:
+    - name: convert placement policy.json to YAML if exists
+      ansible.builtin.command:
+        cmd: >
+          oslopolicy-convert-json-to-yaml
+          --namespace placement
+          --policy-file /etc/placement/policy.json
+          --output-file /etc/placement/policy.yaml
+      args:
+        creates: /etc/placement/policy.yaml
+
+    - name: remove old placement policy.json
+      ansible.builtin.file:
+        path: /etc/placement/policy.json
+        state: absent
+
+
+- name: check placement status and print out 
+  block:
+    - name: check placement status
+      ansible.builtin.command: placement-status upgrade check
+      register: placement_check_result
+
+    - name: print result
+      ansible.builtin.debug:
+        msg: "{{ placement_check_result.stdout_lines }}"
+
+
+#solve the problem : The placement service for controller:RegionOne exists but does not have any supported versions.
+- name: solve problems
+  block:
+    - name: deploy httpd ocnfiguration file(00-placement-api.conf)
+      ansible.builtin.copy:
+        src: files/00-placement-api.conf
+        dest: /etc/httpd/conf.d/00-placement-api.conf
+      notify: restart httpd

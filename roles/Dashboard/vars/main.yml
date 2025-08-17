@@ -1,0 +1,19 @@
+#SPDX-License-Identifier: MIT-0
+---
+# vars file for roles/Dashboard
+mark_dir_path: /root/.mark
+mariadb_unix_socket_path: "/var/lib/mysql/mysql.sock"
+
+openstack_dashboard_hostname: controller
+
+dashboard_conf_template_path:
+  local_settings: templates/local_settings.j2
+  defaults_py: templates/defaults.py.j2
+  openstack_dashboard_conf: templates/openstack-dashboard.conf.j2
+  setting_py: templates/settings.py.j2
+
+dashboard_conf_path:
+  local_settings: /etc/openstack-dashboard/local_settings
+  defaults_py: /usr/share/openstack-dashboard/openstack_dashboard/defaults.py
+  settings_py: /usr/share/openstack-dashboard/openstack_dashboard/test/settings.py
+  openstack_dashboard_conf: /etc/httpd/conf.d/openstack-dashboard.conf  
