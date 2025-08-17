@@ -1,0 +1,7 @@
+---
+# vars file for roles/RabbitMQ
+target_hostname: controller
+rabbitmq_packages:
+  - rabbitmq-server 
+openstack_rabbitmq_user_password: "000000"
+

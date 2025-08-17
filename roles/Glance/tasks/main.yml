@@ -1,0 +1,131 @@
+---
+# tasks file for roles/Glance
+# this roles only runs in controller node , u need to check if the vars/main.yml contains var target_hostname
+- name: check the hostname before start tasks
+  block:
+    - name: check if hostname is {{ target_hostname }}
+      ansible.builtin.debug:
+        msg: "the target host {{ inventory_hostname }}'s hostname 是 {{ ansible_hostname }}，not controller host，please check the hostname and rerun the role"
+      when: ansible_hostname != target_hostname
+
+    - name: stop running in wrong host
+      meta: end_host
+      when: ansible_hostname != target_hostname
+
+- name: ensure mark directory exists
+  ansible.builtin.file:
+    path: "{{ mark_dir_path }}"
+    state: directory
+    mode: '0755'
+
+- name: create glance db and db_user
+  block:
+    - name: create glance_db
+      community.mysql.mysql_db:
+        login_user: root
+        login_unix_socket: "{{ mariadb_unix_socket_path }}"
+        name: "{{ glance_db_conf.db_name }}"
+        state: present
+
+    - name: create glance db_user
+      community.mysql.mysql_user:
+        login_user: root
+        login_unix_socket: "{{ mariadb_unix_socket_path }}"
+        name: "{{ glance_db_conf.db_user_name }}"
+        password: "{{ glance_db_conf.db_user_password }}"
+        priv: "{{ glance_db_conf.db_name }}.*:ALL"
+        state: present
+        host: "{{ item }}"
+      loop:
+        - "localhost"
+        - "%"
+
+- name: create glance service user and endpoints
+  block:
+    - name: create glance user in default domain
+      openstack.cloud.identity_user:
+        name: glance
+        domain: default
+        password: "{{ openstack_glance_user_password }}"
+        state: present
+
+    - name: assign admin role to glance in service project
+      openstack.cloud.role_assignment:
+        user: glance
+        project: service
+        role: admin
+        state: present
+
+    - name: create image service(glance)
+      openstack.cloud.catalog_service:
+        name: glance
+        service_type: image
+        description: "OpenStack Image Service"
+        state: present
+
+
+    - name: create glance's public endpoint
+      openstack.cloud.endpoint:
+        service: glance
+        endpoint_interface: public
+        url: "http://controller:9292"
+        region: RegionOne
+        state: present
+
+    - name: create glance's internal endpoint
+      openstack.cloud.endpoint:
+        service: glance
+        endpoint_interface: internal
+        url: "http://controller:9292"
+        region: RegionOne
+        state: present
+
+    - name: create glance's admin endpoint
+      openstack.cloud.endpoint:
+        service: glance
+        endpoint_interface: admin
+        url: "http://controller:9292"
+        region: RegionOne
+        state: present
+
+- name: install glance packages and configure glance conf
+  block:
+    - name: install glance packages
+      ansible.builtin.dnf:
+        name: "{{ glance_packages }}"
+        state: latest
+
+    - name: configrue glance-api.conf
+      ansible.builtin.template:
+        src: "{{ glance_conf_template_path }}"
+        dest: "{{ glance_conf_path }}"
+
+
+- name: synce the glance_db
+  block:
+    - name: ensure glance database is synced
+      ansible.builtin.command: glance-manage db_sync
+      become: yes
+      become_user: glance
+      #here i use .db_synced empty file to mark that this glance db has been synced,if the mark file exists,this task won't run
+      args:
+        creates: "{{ glance_mark_path.db_synced_mark_path }}"
+      register: glance_db_sync
+      ignore_errors: false
+
+    - name: Mark Glance database as synced
+      ansible.builtin.file:
+        path: "{{ glance_mark_path.db_synced_mark_path }}"
+        state: touch
+      when: glance_db_sync.changed
+
+
+    - name: Show db_sync output
+      ansible.builtin.debug:
+        msg: "{{ glance_db_sync.stdout_lines }}"
+
+    - name: restart glance-api service
+      ansible.builtin.service:
+        name: openstack-glance-api.service 
+        state: started
+        enabled: yes

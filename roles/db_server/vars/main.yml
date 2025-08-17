@@ -1,0 +1,14 @@
+---
+# vars file for roles/db_server
+target_hostname: controller
+
+mariadb_packages:
+  - mariadb-server
+  - python3-PyMySQL
+
+mariadb_unix_socket_path: /var/lib/mysql/mysql.sock
+mariadb_openstack_conf_templates_path: templates/99-openstack.cnf.j2
+
+mariadb_openstack_conf_dest_path: /etc/my.cnf.d/99-openstack.cnf
+
+
