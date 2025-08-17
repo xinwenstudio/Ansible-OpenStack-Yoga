@@ -1,0 +1,10 @@
+---
+collections:
+  - name: ansible.posix
+  - name: community.docker
+  - name: community.general
+  - name: community.library_inventory_filtering_v1
+  - name: community.mysql
+  - name: community.rabbitmq
+  - name: openstack.cloud
+  - name: community.crypto
