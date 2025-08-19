@@ -3,8 +3,8 @@
 #[controller]
 #CONTROLLER_NODE_IP_01
 #[compute]
-#COMPUTE_NODE_01
-
+#COMPUTE_NODE_IP_01
+#COMPUTE_NODE_IP_02
 [controller]
 [compute]
 
