@@ -1,0 +1,29 @@
+---
+# vars file for roles/Keystone
+mark_dir_path: /root/.mark
+keystone_packages: 
+  - openstack-keystone
+  - httpd
+  - python3-mod_wsgi
+
+mariadb_unix_socket_path: "/var/lib/mysql/mysql.sock"
+keystone_db_conf:
+  db_name: keystone
+  db_user_name: keystone
+  db_user_password: "000000"
+
+keystone_conf_template_path: "templates/keystone.conf.j2"
+keystone_conf_path: "/etc/keystone/keystone.conf" 
+
+keystone_mark_path:
+  db_synced_mark_path: "/root/.mark/keystone_db_synced"
+  fernet_initialized_mark_path: "/root/.mark/keystone_fernet_initialized"
+  credential_initialized_mark_path: "/root/.mark/keystone_credential_initialized"
+  keystone_bootstrap_mark_path: "/root/.mark/keystone_bootstrap_done"
+
+apache_conf_path: "/etc/httpd/conf/httpd.conf"
+apache_conf_template_path: "templates/httpd.conf.j2"
+
+openrc_admin_template_path: "templates/openstack-admin.sh.j2"
+openrc_admin_path: "/etc/profile.d/openstack-admin.sh"
+

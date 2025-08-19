@@ -1,0 +1,9 @@
+---
+# tasks file for roles/Nova
+- name: Run controller tasks
+  ansible.builtin.import_tasks: Nova_controller.yml
+  when: "'controller' in group_names"
+
+- name: Run compute tasks
+  ansible.builtin.import_tasks: Nova_compute.yml
+  when: "'compute' in group_names"

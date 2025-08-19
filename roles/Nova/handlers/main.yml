@@ -1,0 +1,13 @@
+---
+# handlers file for roles/Nova
+- name: restart openstack-nova-compute
+  ansible.builtin.service:
+    name: openstack-nova-compute
+    state: restarted
+    enabled: yes
+
+- name: ensure the libvirtd is started and enabled
+  ansible.builtin.service:
+    name: libvirtd
+    state: started
+    enabled: yes
