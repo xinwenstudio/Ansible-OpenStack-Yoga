@@ -1,5 +1,10 @@
-[compute]
-192.168.1.211
-192.168.1.212
+#You should specify your controlled host here. At least, edit it according to your personal needs
+#For the example machine, you can use the following structure
+#[controller]
+#CONTROLLER_NODE_IP_01
+#[compute]
+#COMPUTE_NODE_01
+
 [controller]
-192.168.1.210
+[compute]
+
