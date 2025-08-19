@@ -1,7 +1,0 @@
----
-# handlers file for roles/Placement
-- name: restart httpd
-  ansible.builtin.service:
-    name: httpd
-    enabled: yes
-
