@@ -1,0 +1,13 @@
+---
+# tasks file for roles/Neutron
+- name: configure nic configuration
+  include_tasks: Neutron_configure_nic.yml
+      
+- name: run controller tasks
+  ansible.builtin.import_tasks: Neutron_controller.yml
+  when: "'controller' in group_names"
+
+- name: run compute tasks
+  ansible.builtin.import_tasks: Neutron_compute.yml
+  when: "'compute' in group_names"
+
