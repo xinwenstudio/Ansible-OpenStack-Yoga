@@ -1,7 +1,0 @@
----
-# handlers file for roles/init_env
-- name: restart_chronyd
-  ansible.builtin.service:
-    name: chronyd
-    state: restarted
-    enabled: yes
