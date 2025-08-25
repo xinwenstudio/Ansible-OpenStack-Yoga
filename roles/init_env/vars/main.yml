@@ -1,0 +1,24 @@
+---
+# vars file for roles/init_env
+#this is vars need to write into hosts,u need to check if it's right before u run the playbook
+mark_dir_path: "/root/.mark"
+hosts_path: /etc/hosts
+host_mappings:
+  - ip: 192.168.1.170
+    name: controller
+  - ip: 192.168.1.171
+    name: compute01
+  - ip: 192.168.1.172
+    name: compute02
+#this is ntp configure vars,u can also use local hosts to set ntp time,just to change the conf file 
+ntp_server: ntp.aliyun.com
+
+#these packages u may need to use during the deployment
+package_to_install:
+  - dnf-plugins-core
+  - python3-pip
+  - vim
+  - git
+  - wget
+  - centos-release-openstack-yoga
+openstack_packages: python3-openstackclient

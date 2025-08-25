@@ -1,0 +1,47 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for configure_local_repo
+
+- name: 检查备份目录是否存在
+  ansible.builtin.stat:
+    path: "/etc/yum.repos.d/ansible_backup_repo"
+  register: backup_dir_stat
+
+- name: 创建备份目录（如果不存在）
+  ansible.builtin.file:
+    path: "/etc/yum.repos.d/ansible_backup_repo"
+    state: directory
+    mode: '0755'
+  when: not backup_dir_stat.stat.exists
+
+- name: 获取现有的repo文件
+  ansible.builtin.find:
+    paths: /etc/yum.repos.d
+    patterns: "*.repo"
+    excludes: "ansible_backup_repo"
+  register: existing_repos
+
+- name: 备份并移除原有的repo文件（仅当首次备份时）
+  block:
+    - name: 移动repo文件到备份目录
+      ansible.builtin.command:
+        cmd: "mv {{ item.path }} /etc/yum.repos.d/ansible_backup_repo/{{ item.path | basename }}"
+      loop: "{{ existing_repos.files }}"
+      when: existing_repos.files | length > 0
+
+    - name: 确认原有repo文件已清理
+      ansible.builtin.find:
+        paths: /etc/yum.repos.d
+        patterns: "*.repo"
+        excludes: "ansible_backup_repo"
+      register: remaining_repos
+      failed_when: remaining_repos.files | length > 0
+  when: not backup_dir_stat.stat.exists
+
+- name: deploy new repo
+  ansible.builtin.template:
+    src: "{{ repo_templates_path.local_centos9 }}"
+    dest: "{{ repo_path.local_centos9 }}"
+  notify:
+    - dnf clean all
+    - dnf makecache 
