@@ -1,0 +1,22 @@
+---
+# vars file for roles/Glance
+mark_dir_path: /root/.mark
+target_hostname: controller
+mariadb_unix_socket_path: "/var/lib/mysql/mysql.sock"   
+
+glance_db_conf:
+  db_name: glance
+  db_user_name: glance
+  db_user_password: "000000"
+
+openstack_glance_user_password: "000000"
+
+glance_conf_template_path: templates/glance-api.conf.j2
+glance_conf_path: /etc/glance/glance-api.conf
+ 
+
+glance_packages:
+  - openstack-glance
+
+glance_mark_path:
+  db_synced_mark_path: "/root/.mark/glance_db_synced" 
