@@ -1,0 +1,37 @@
+<VirtualHost *:80>
+
+    ServerAdmin webmaster@openstack.org
+    ServerName  openstack_dashboard
+
+    DocumentRoot /usr/share/openstack-dashboard/
+
+    LogLevel warn
+    ErrorLog /var/log/httpd/openstack_dashboard-error.log
+    CustomLog /var/log/httpd/openstack_dashboard-access.log combined
+
+    WSGIScriptReloading On
+    WSGIDaemonProcess openstack_dashboard_website processes=5
+    WSGIProcessGroup openstack_dashboard_website
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIPassAuthorization On
+
+    WSGIScriptAlias /dashboard /usr/share/openstack-dashboard/openstack_dashboard/wsgi.py
+
+    <Location "/">
+        Require all granted
+    </Location>
+
+    Alias /static /var/lib/openstack-dashboard/static
+    <Directory "/var/lib/openstack-dashboard/static">
+        Options FollowSymLinks
+        Require all granted
+        AllowOverride None
+        SetHandler None
+
+        # 针对 CentOS 9 的特殊设置
+        Header set Cache-Control "public, max-age=86400"
+        ExpiresActive On
+        ExpiresDefault "access plus 1 day"
+    </Directory>
+
+</Virtualhost>
