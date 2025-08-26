@@ -1,0 +1,48 @@
+---
+#these are roles that we will use during the running of openstack-deployment : Cinder Dashboard Glance Keystone Memcache Neutron Nova Placement RabbitMQ Skyline configure_local_repo db_server init_env
+#If you plan to use a local repository, you must at least prepare the following:
+#On CentOS 9, you will need the three fundamental repositories: BaseOS, AppStream, and an additional RDO repository. The rest you’ll need to set up on your own.
+#Also, just a heads-up—based on my previous tests, after localizing the repository, you should avoid using overly recent versions of certain repositories, especially RabbitMQ. Doing so may cause version inconsistencies between RabbitMQ and the Erlang repository.
+#The following is a basic example. If your configuration exactly matches the architecture I provided, you can run this playbook directly. Before running it, please ensure you have modified the specified content in the playbook that requires changes.
+
+
+
+#Before we proceed with the formal deployment, we need to initialize the environment. This task targets all hosts and must be executed before any other tasks.
+- name: init_env
+  hosts: all
+  serial: 1
+  roles:
+    - init_env
+
+#This task deploys the components on the OpenStack controller node.
+- name: deploy controller node
+  hosts: controller
+  serial: 2
+  roles:
+    - db_server
+    - Memcache
+    - RabbitMQ
+    - Keystone
+    - Glance
+    - Placement
+    - Nova
+    - Neutron
+    - Dashboard
+    - Cinder
+
+#This task deploys the components on the OpenStack compute node.
+- name: deploy compute node
+  hosts: compute
+  serial: 3
+  roles:
+    - Nova
+    - Neutron
+    
+#This task deploys the components on the OpenStack cinder node.
+#In the example architecture, the Cinder node and the Compute node are the same node.
+- name: deploy cinder node
+  hosts: cinder
+  serial: 4
+  roles:
+    - Cinder
+
