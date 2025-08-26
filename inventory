@@ -7,4 +7,5 @@
 #COMPUTE_NODE_IP_02
 [controller]
 [compute]
+[cinder]
 
