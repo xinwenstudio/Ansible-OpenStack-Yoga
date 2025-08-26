@@ -1,0 +1,8 @@
+---
+# vars file for roles/Memcache
+target_hostname: controller
+memcache_packages: 
+  - memcached
+  - python3-memcached 
+memcached_conf_path: /etc/sysconfig/memcached
+memcached_conf_template_path: templates/memcached.j2
