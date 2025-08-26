@@ -1,0 +1,106 @@
+---
+- name: check if host is in target group before start tasks
+  block:
+    - name: debug if host is not in compute group
+      ansible.builtin.debug:
+        msg: "Host {{ inventory_hostname }} is not in compute group, stopping execution"
+      when: "'cinder' not in group_names"
+
+    - name: stop running role on hosts not in compute
+      meta: end_host
+      when: "'cinder' not in group_names"
+
+- name: ensure mark directory exists
+  ansible.builtin.file:
+    path: "{{ mark_dir_path }}"
+    state: directory
+    mode: '0755'
+
+- name: setup LVM backend for cinder
+  block:
+    - name: 获取所有物理磁盘
+      ansible.builtin.set_fact:
+        physical_disks: "{{ ansible_devices.keys() | select('match','^(sd|nvme).*') | list }}"
+
+    - name: 获取根挂载设备
+      ansible.builtin.set_fact:
+        root_device: "{{ (ansible_mounts | selectattr('mount','equalto','/') | map(attribute='device') | list)[0] }}"
+
+    - name: 获取系统盘候选
+      ansible.builtin.command: "pvs --noheadings -o pv_name -S vg_name=$(lvs --noheadings -o vg_name {{ root_device }} 2>/dev/null | xargs)"
+      register: root_pvs_out
+      failed_when: false
+
+    - name: 设置系统盘
+      ansible.builtin.set_fact:
+        root_disk: "{{ (root_pvs_out.stdout_lines | map('basename') | list)[0] | default('') }}"
+
+    - name: 获取有分区的磁盘
+      ansible.builtin.set_fact:
+        partitioned_disks: "{{ ansible_devices
+                               | dict2items
+                               | selectattr('value.partitions', 'defined')
+                               | selectattr('value.partitions', 'ne', {})
+                               | map(attribute='key')
+                               | list }}"
+
+
+    - name: 获取数据盘
+      ansible.builtin.set_fact:
+        data_disks: "{{ physical_disks | difference([root_disk]) }}"
+
+    - name: 获取可用裸盘（Cinder可用）
+      ansible.builtin.set_fact:
+        cinder_disks: "{{ data_disks | difference(partitioned_disks) }}"      
+    - name: 为 Cinder 创建物理卷
+      ansible.builtin.command: "pvcreate /dev/{{ item }}"
+      loop: "{{ cinder_disks }}"
+      register: pvcreate_results
+      failed_when: false
+
+    - name: 为 Cinder 创建卷组
+      ansible.builtin.command: "vgcreate cinder-volumes /dev/{{ cinder_disks | join(' /dev/') }}"
+      when: cinder_disks | length > 0
+      register: vgcreate_result
+      failed_when: false
+
+    - name: 显示磁盘信息
+      ansible.builtin.debug:
+        msg:
+          - "所有物理磁盘: {{ physical_disks }}"
+          - "系统盘: {{ root_disk }}"
+          - "数据盘: {{ data_disks }}"
+          - "可用裸盘(Cinder可用): {{ cinder_disks }}"
+          - "pvcreate 执行结果: {{ pvcreate_results.results | map(attribute='stdout') | list }}"
+          - "vgcreate 执行结果: {{ vgcreate_result.stdout if vgcreate_result is defined else '未执行' }}"
+
+
+    - name: 设置 LVM filter，允许 Cinder 盘并拒绝其他磁盘
+      ansible.builtin.replace:
+        path: /etc/lvm/lvm.conf
+        regexp: '^\s*filter\s*=.*$'
+        replace: '    filter = [ {% for d in cinder_disks %}"a/{{ d }}/",{% endfor %} "r/.*/"]'
+      when: cinder_disks | length > 0
+
+    - name: 显示修改后的 LVM filter
+      ansible.builtin.shell: "grep 'filter' /etc/lvm/lvm.conf"
+      register: lvm_filter_result
+
+    - name: 输出 LVM filter
+      ansible.builtin.debug:
+        msg: "{{ lvm_filter_result.stdout }}"
+
+- name: install some packages and configure cinder
+  block:
+    - name: install packages
+      ansible.builtin.dnf:
+        name: "{{ cinder_node_packages }}"
+        state: latest
+
+    - name: deploy template 
+      ansible.builtin.template:
+        src: "{{ cinder_conf_template_path.cinder_node_conf }}"
+        dest: "{{ cinder_conf_path.cinder_conf }}"
+      notify: 
+        - restart openstack-cinder-volume
+        - restart target
