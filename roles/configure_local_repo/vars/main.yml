@@ -1,9 +1,0 @@
-#SPDX-License-Identifier: MIT-0
----
-# vars file for configure_local_repo
-repo_templates_path:
-  local_centos9: templates/local_centos9.repo.j2
-
-repo_path:
-  local_centos9: /etc/yum.repos.d/local_centos9.repo
-
