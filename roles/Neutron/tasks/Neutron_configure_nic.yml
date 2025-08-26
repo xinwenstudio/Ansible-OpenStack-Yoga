@@ -1,0 +1,41 @@
+---
+- name: Configure physical bridge interface
+  block:
+    - name: Disable IPv4 on {{ ovs_conf.bridge_nic }}
+      community.general.nmcli:
+        conn_name: "{{ ovs_conf.bridge_nic }}"
+        type: ethernet
+          #ip4: ""
+          #gw4: ""
+          #dns4: ""
+        method4: disabled
+        state: present
+
+    - name: Ignore IPv6 on {{ ovs_conf.bridge_nic }}
+      community.general.nmcli:
+        conn_name: "{{ ovs_conf.bridge_nic }}"
+        type: ethernet
+          #ip6: ""
+          #gw6: ""
+          #dns6: ""
+        method6: ignore
+        state: present
+
+- name: add br-port
+  block:
+    - name: ensure openvswitch is running
+      ansible.builtin.service:
+        name: openvswitch.service
+        state: started
+
+    - name: create OVS br
+      openvswitch.openvswitch.openvswitch_bridge:
+        bridge: "{{ ovs_conf.br_port_name }}"
+        state: present
+        fail_mode: standalone
+
+    - name: add phy_nic to OVS bridge
+      openvswitch.openvswitch.openvswitch_port:
+        bridge: "{{ ovs_conf.br_port_name }}"
+        port: "{{ ovs_conf.bridge_nic }}"
+        state: present
