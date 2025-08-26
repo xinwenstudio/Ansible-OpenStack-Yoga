@@ -1,0 +1,20 @@
+---
+# vars file for roles/Placement
+mark_dir_path: /root/.mark
+target_hostname: controller
+mariadb_unix_socket_path: "/var/lib/mysql/mysql.sock"
+
+placement_db_conf:
+  db_name: placement
+  db_user_name: placement
+  db_user_password: "000000"
+
+openstack_placement_user_password: "000000"
+placement_conf_template_path: templates/placement.conf.j2
+placement_conf_path: /etc/placement/placement.conf
+
+placement_mark_path:
+  db_synced_mark_path: "/root/.mark/placement_db_synced"
+
+placement_packages:
+  - openstack-placement-api
